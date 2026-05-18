@@ -11,14 +11,22 @@ jobs:
     steps:
       - name: Ping Master Projects
         run: |
-          curl -f -s "${{ secrets.SUPABASE_URL_1 }}/rest/v1/eats_restaurants?select=id&limit=1" \
+          curl -f -s -o /dev/null \
+            -X POST \
+            "${{ secrets.SUPABASE_URL_1 }}/rest/v1/keep_alive" \
             -H "apikey: ${{ secrets.SUPABASE_KEY_1 }}" \
-            -H "Authorization: Bearer ${{ secrets.SUPABASE_KEY_1 }}"
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_KEY_1 }}" \
+            -H "Content-Type: application/json" \
+            -d '{"pinged_at": "now()"}'
           echo "Master Projects pinged successfully"
 
       - name: Ping Voiding Diary
         run: |
-          curl -f -s "${{ secrets.SUPABASE_URL_2 }}/rest/v1/entries?select=id&limit=1" \
+          curl -f -s -o /dev/null \
+            -X POST \
+            "${{ secrets.SUPABASE_URL_2 }}/rest/v1/keep_alive" \
             -H "apikey: ${{ secrets.SUPABASE_KEY_2 }}" \
-            -H "Authorization: Bearer ${{ secrets.SUPABASE_KEY_2 }}"
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_KEY_2 }}" \
+            -H "Content-Type: application/json" \
+            -d '{"pinged_at": "now()"}'
           echo "Voiding Diary pinged successfully"
