@@ -2,31 +2,124 @@ name: Supabase Keep-Alive
 
 on:
   schedule:
-    - cron: '0 9 * * 1,4'
+    - cron: '23 7 * * *'   # Daily at 7:23am UTC — odd time avoids GH Actions peak load
   workflow_dispatch:
 
 jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
+
       - name: Ping Master Projects
+        env:
+          URL: ${{ secrets.SUPABASE_URL_1 }}
+          KEY: ${{ secrets.SUPABASE_KEY_1 }}
         run: |
-          curl -f -s -o /dev/null \
-            -X POST \
-            "${{ secrets.SUPABASE_URL_1 }}/rest/v1/keep_alive" \
-            -H "apikey: ${{ secrets.SUPABASE_KEY_1 }}" \
-            -H "Authorization: Bearer ${{ secrets.SUPABASE_KEY_1 }}" \
+          set -e
+          DAY=$(date +%u)   # 1=Mon ... 7=Sun
+
+          echo "--- INSERT keep_alive ---"
+          curl -sf -o /dev/null -w "%{http_code}\n" -X POST "$URL/rest/v1/keep_alive" \
+            -H "apikey: $KEY" -H "Authorization: Bearer $KEY" \
             -H "Content-Type: application/json" \
-            -d '{"pinged_at": "now()"}'
-          echo "Master Projects pinged successfully"
+            -H "Prefer: return=minimal" \
+            -d "{\"pinged_at\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}"
+
+          sleep $((RANDOM % 5 + 1))
+
+          echo "--- SELECT eats_restaurants ---"
+          curl -sf -o /dev/null -w "%{http_code}\n" \
+            "$URL/rest/v1/eats_restaurants?select=id,name&limit=5&order=created_at.desc" \
+            -H "apikey: $KEY" -H "Authorization: Bearer $KEY"
+
+          sleep $((RANDOM % 4 + 1))
+
+          # Rotate table by day: Mon/Thu=config, Tue/Fri=conversations, Wed/Sat=ai_flags, Sun=local_restaurants
+          if [ "$DAY" = "1" ] || [ "$DAY" = "4" ]; then
+            echo "--- SELECT eats_config ---"
+            curl -sf -o /dev/null -w "%{http_code}\n" \
+              "$URL/rest/v1/eats_config?select=id,prompt&limit=3" \
+              -H "apikey: $KEY" -H "Authorization: Bearer $KEY"
+          elif [ "$DAY" = "2" ] || [ "$DAY" = "5" ]; then
+            echo "--- SELECT eats_conversations ---"
+            curl -sf -o /dev/null -w "%{http_code}\n" \
+              "$URL/rest/v1/eats_conversations?select=id,created_at&limit=5&order=created_at.desc" \
+              -H "apikey: $KEY" -H "Authorization: Bearer $KEY"
+          elif [ "$DAY" = "3" ] || [ "$DAY" = "6" ]; then
+            echo "--- SELECT eats_ai_flags ---"
+            curl -sf -o /dev/null -w "%{http_code}\n" \
+              "$URL/rest/v1/eats_ai_flags?select=id&limit=5" \
+              -H "apikey: $KEY" -H "Authorization: Bearer $KEY"
+          else
+            echo "--- SELECT eats_local_restaurants ---"
+            curl -sf -o /dev/null -w "%{http_code}\n" \
+              "$URL/rest/v1/eats_local_restaurants?select=id,name&limit=5" \
+              -H "apikey: $KEY" -H "Authorization: Bearer $KEY"
+          fi
+
+          sleep $((RANDOM % 3 + 1))
+
+          echo "--- DELETE old keep_alive rows ---"
+          curl -sf -o /dev/null -w "%{http_code}\n" -X DELETE \
+            "$URL/rest/v1/keep_alive?pinged_at=lt.$(date -u -d '30 days ago' +%Y-%m-%dT%H:%M:%SZ)" \
+            -H "apikey: $KEY" -H "Authorization: Bearer $KEY" \
+            -H "Prefer: return=minimal"
+
+          echo "Master Projects done."
 
       - name: Ping Voiding Diary
+        env:
+          URL: ${{ secrets.SUPABASE_URL_2 }}
+          KEY: ${{ secrets.SUPABASE_KEY_2 }}
         run: |
-          curl -f -s -o /dev/null \
-            -X POST \
-            "${{ secrets.SUPABASE_URL_2 }}/rest/v1/keep_alive" \
-            -H "apikey: ${{ secrets.SUPABASE_KEY_2 }}" \
-            -H "Authorization: Bearer ${{ secrets.SUPABASE_KEY_2 }}" \
+          set -e
+          DAY=$(date +%u)
+
+          echo "--- INSERT keep_alive ---"
+          curl -sf -o /dev/null -w "%{http_code}\n" -X POST "$URL/rest/v1/keep_alive" \
+            -H "apikey: $KEY" -H "Authorization: Bearer $KEY" \
             -H "Content-Type: application/json" \
-            -d '{"pinged_at": "now()"}'
-          echo "Voiding Diary pinged successfully"
+            -H "Prefer: return=minimal" \
+            -d "{\"pinged_at\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}"
+
+          sleep $((RANDOM % 5 + 1))
+
+          echo "--- SELECT entries ---"
+          curl -sf -o /dev/null -w "%{http_code}\n" \
+            "$URL/rest/v1/entries?select=id,created_at&limit=5&order=created_at.desc" \
+            -H "apikey: $KEY" -H "Authorization: Bearer $KEY"
+
+          sleep $((RANDOM % 4 + 1))
+
+          # Rotate table by day
+          if [ "$DAY" = "1" ] || [ "$DAY" = "4" ]; then
+            echo "--- SELECT diary_groups ---"
+            curl -sf -o /dev/null -w "%{http_code}\n" \
+              "$URL/rest/v1/diary_groups?select=id,created_at&limit=5" \
+              -H "apikey: $KEY" -H "Authorization: Bearer $KEY"
+          elif [ "$DAY" = "2" ] || [ "$DAY" = "5" ]; then
+            echo "--- SELECT diary_confirmations ---"
+            curl -sf -o /dev/null -w "%{http_code}\n" \
+              "$URL/rest/v1/diary_confirmations?select=id&limit=5" \
+              -H "apikey: $KEY" -H "Authorization: Bearer $KEY"
+          elif [ "$DAY" = "3" ] || [ "$DAY" = "6" ]; then
+            echo "--- SELECT profiles ---"
+            curl -sf -o /dev/null -w "%{http_code}\n" \
+              "$URL/rest/v1/profiles?select=id&limit=5" \
+              -H "apikey: $KEY" -H "Authorization: Bearer $KEY"
+          else
+            echo "--- SELECT entries_backup (count only) ---"
+            curl -sf -o /dev/null -w "%{http_code}\n" \
+              "$URL/rest/v1/entries_backup_msn_2026_04_29?select=id&limit=3" \
+              -H "apikey: $KEY" -H "Authorization: Bearer $KEY"
+          fi
+
+          sleep $((RANDOM % 3 + 1))
+
+          echo "--- DELETE old keep_alive rows ---"
+          curl -sf -o /dev/null -w "%{http_code}\n" -X DELETE \
+            "$URL/rest/v1/keep_alive?pinged_at=lt.$(date -u -d '30 days ago' +%Y-%m-%dT%H:%M:%SZ)" \
+            -H "apikey: $KEY" -H "Authorization: Bearer $KEY" \
+            -H "Prefer: return=minimal"
+
+          echo "Voiding Diary done."
