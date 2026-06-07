@@ -2,7 +2,8 @@ name: Supabase Keep-Alive
 
 on:
   schedule:
-    - cron: '23 7 * * *'
+    - cron: '23 7 * * *'    # Daily 7:23am UTC
+    - cron: '47 19 * * *'   # Daily 7:47pm UTC — redundant safety net
   workflow_dispatch:
 
 jobs:
@@ -15,54 +16,48 @@ jobs:
           URL: ${{ secrets.SUPABASE_URL_1 }}
           KEY: ${{ secrets.SUPABASE_KEY_1 }}
         run: |
-          set -e
           DAY=$(date +%u)
 
           echo "--- INSERT keep_alive ---"
-          curl -sf -o /dev/null -w "%{http_code}\n" -X POST "$URL/rest/v1/keep_alive" \
+          curl -s -o /dev/null -w "%{http_code}\n" -X POST "$URL/rest/v1/keep_alive" \
             -H "apikey: $KEY" -H "Authorization: Bearer $KEY" \
             -H "Content-Type: application/json" \
             -H "Prefer: return=minimal" \
-            -d "{\"pinged_at\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}"
+            -d "{\"pinged_at\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}" || true
 
-          sleep $((RANDOM % 5 + 1))
+          sleep $((RANDOM % 5 + 1)) || true
 
           echo "--- SELECT eats_restaurants ---"
           curl -s -o /dev/null -w "%{http_code}\n" \
-            "$URL/rest/v1/eats_restaurants?select=id,name&limit=5&order=created_at.desc" \
-            -H "apikey: $KEY" -H "Authorization: Bearer $KEY"
+            "$URL/rest/v1/eats_restaurants?select=id,name&limit=5" \
+            -H "apikey: $KEY" -H "Authorization: Bearer $KEY" || true
 
-          sleep $((RANDOM % 4 + 1))
+          sleep $((RANDOM % 4 + 1)) || true
 
           if [ "$DAY" = "1" ] || [ "$DAY" = "4" ]; then
             echo "--- SELECT eats_config ---"
             curl -s -o /dev/null -w "%{http_code}\n" \
-              "$URL/rest/v1/eats_config?select=id,prompt&limit=3" \
-              -H "apikey: $KEY" -H "Authorization: Bearer $KEY"
+              "$URL/rest/v1/eats_config?select=id&limit=3" \
+              -H "apikey: $KEY" -H "Authorization: Bearer $KEY" || true
           elif [ "$DAY" = "2" ] || [ "$DAY" = "5" ]; then
             echo "--- SELECT eats_conversations ---"
             curl -s -o /dev/null -w "%{http_code}\n" \
-              "$URL/rest/v1/eats_conversations?select=id,created_at&limit=5&order=created_at.desc" \
-              -H "apikey: $KEY" -H "Authorization: Bearer $KEY"
-          elif [ "$DAY" = "3" ] || [ "$DAY" = "6" ]; then
+              "$URL/rest/v1/eats_conversations?select=id&limit=5" \
+              -H "apikey: $KEY" -H "Authorization: Bearer $KEY" || true
+          else
             echo "--- SELECT eats_ai_flags ---"
             curl -s -o /dev/null -w "%{http_code}\n" \
               "$URL/rest/v1/eats_ai_flags?select=id&limit=5" \
-              -H "apikey: $KEY" -H "Authorization: Bearer $KEY"
-          else
-            echo "--- SELECT eats_local_restaurants ---"
-            curl -s -o /dev/null -w "%{http_code}\n" \
-              "$URL/rest/v1/eats_local_restaurants?select=id,name&limit=5" \
-              -H "apikey: $KEY" -H "Authorization: Bearer $KEY"
+              -H "apikey: $KEY" -H "Authorization: Bearer $KEY" || true
           fi
 
-          sleep $((RANDOM % 3 + 1))
+          sleep $((RANDOM % 3 + 1)) || true
 
           echo "--- DELETE old keep_alive rows ---"
-          curl -sf -o /dev/null -w "%{http_code}\n" -X DELETE \
+          curl -s -o /dev/null -w "%{http_code}\n" -X DELETE \
             "$URL/rest/v1/keep_alive?pinged_at=lt.$(date -u -d '30 days ago' +%Y-%m-%dT%H:%M:%SZ)" \
             -H "apikey: $KEY" -H "Authorization: Bearer $KEY" \
-            -H "Prefer: return=minimal"
+            -H "Prefer: return=minimal" || true
 
           echo "Master Projects done."
 
@@ -71,16 +66,47 @@ jobs:
           URL: ${{ secrets.SUPABASE_URL_2 }}
           KEY: ${{ secrets.SUPABASE_KEY_2 }}
         run: |
-          set -e
           DAY=$(date +%u)
 
           echo "--- INSERT keep_alive ---"
-          curl -sf -o /dev/null -w "%{http_code}\n" -X POST "$URL/rest/v1/keep_alive" \
+          curl -s -o /dev/null -w "%{http_code}\n" -X POST "$URL/rest/v1/keep_alive" \
             -H "apikey: $KEY" -H "Authorization: Bearer $KEY" \
             -H "Content-Type: application/json" \
             -H "Prefer: return=minimal" \
-            -d "{\"pinged_at\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}"
+            -d "{\"pinged_at\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}" || true
 
-          sleep $((RANDOM % 5 + 1))
+          sleep $((RANDOM % 5 + 1)) || true
 
           echo "--- SELECT entries ---"
+          curl -s -o /dev/null -w "%{http_code}\n" \
+            "$URL/rest/v1/entries?select=id&limit=5" \
+            -H "apikey: $KEY" -H "Authorization: Bearer $KEY" || true
+
+          sleep $((RANDOM % 4 + 1)) || true
+
+          if [ "$DAY" = "1" ] || [ "$DAY" = "4" ]; then
+            echo "--- SELECT diary_groups ---"
+            curl -s -o /dev/null -w "%{http_code}\n" \
+              "$URL/rest/v1/diary_groups?select=id&limit=5" \
+              -H "apikey: $KEY" -H "Authorization: Bearer $KEY" || true
+          elif [ "$DAY" = "2" ] || [ "$DAY" = "5" ]; then
+            echo "--- SELECT diary_confirmations ---"
+            curl -s -o /dev/null -w "%{http_code}\n" \
+              "$URL/rest/v1/diary_confirmations?select=id&limit=5" \
+              -H "apikey: $KEY" -H "Authorization: Bearer $KEY" || true
+          else
+            echo "--- SELECT keep_alive ---"
+            curl -s -o /dev/null -w "%{http_code}\n" \
+              "$URL/rest/v1/keep_alive?select=id&limit=5" \
+              -H "apikey: $KEY" -H "Authorization: Bearer $KEY" || true
+          fi
+
+          sleep $((RANDOM % 3 + 1)) || true
+
+          echo "--- DELETE old keep_alive rows ---"
+          curl -s -o /dev/null -w "%{http_code}\n" -X DELETE \
+            "$URL/rest/v1/keep_alive?pinged_at=lt.$(date -u -d '30 days ago' +%Y-%m-%dT%H:%M:%SZ)" \
+            -H "apikey: $KEY" -H "Authorization: Bearer $KEY" \
+            -H "Prefer: return=minimal" || true
+
+          echo "Voiding Diary done."
