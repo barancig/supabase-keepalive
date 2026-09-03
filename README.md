@@ -1,2 +1,2 @@
 # supabase-keepalive
-July 31, 2026 bump
+September 3, 2026 bump
