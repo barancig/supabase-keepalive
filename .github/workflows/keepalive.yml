@@ -3,7 +3,7 @@ name: Supabase Keep-Alive
 on:
   schedule:
     - cron: '23 7 * * *'    # Daily 7:23am UTC
-    - cron: '47 19 * * *'   # Daily 7:47pm UTC — redundant safety net
+    - cron: '47 19 * * *'   # Daily 7:47pm UTC - redundant safety net
   workflow_dispatch:
 
 jobs:
@@ -34,20 +34,22 @@ jobs:
 
           sleep $((RANDOM % 4 + 1)) || true
 
+          # Rotated read over tables the app keeps (Phase 1b, 2026-10-18: the
+          # dormant eats_config, eats_conversations and eats_ai_flags were dropped).
           if [ "$DAY" = "1" ] || [ "$DAY" = "4" ]; then
-            echo "--- SELECT eats_config ---"
+            echo "--- SELECT eats_users ---"
             curl -s -o /dev/null -w "%{http_code}\n" \
-              "$URL/rest/v1/eats_config?select=id&limit=3" \
+              "$URL/rest/v1/eats_users?select=user_id&limit=2" \
               -H "apikey: $KEY" -H "Authorization: Bearer $KEY" || true
           elif [ "$DAY" = "2" ] || [ "$DAY" = "5" ]; then
-            echo "--- SELECT eats_conversations ---"
+            echo "--- SELECT eats_local_restaurants ---"
             curl -s -o /dev/null -w "%{http_code}\n" \
-              "$URL/rest/v1/eats_conversations?select=id&limit=5" \
+              "$URL/rest/v1/eats_local_restaurants?select=place_id&limit=5" \
               -H "apikey: $KEY" -H "Authorization: Bearer $KEY" || true
           else
-            echo "--- SELECT eats_ai_flags ---"
+            echo "--- SELECT eats_user_data ---"
             curl -s -o /dev/null -w "%{http_code}\n" \
-              "$URL/rest/v1/eats_ai_flags?select=id&limit=5" \
+              "$URL/rest/v1/eats_user_data?select=restaurant_id&limit=5" \
               -H "apikey: $KEY" -H "Authorization: Bearer $KEY" || true
           fi
 
@@ -110,3 +112,17 @@ jobs:
             -H "Prefer: return=minimal" || true
 
           echo "Voiding Diary done."
+
+  # Keeps this repository's schedule from being switched off after 60 days
+  # without a commit (Gary's ruling 2026-08-15: commit mode, 45 days). Replaces
+  # the hand-made README date bumps.
+  keepalive:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: gautamkrishnar/keepalive-workflow@v2
+        with:
+          use_api: false
+          time_elapsed: '45'
